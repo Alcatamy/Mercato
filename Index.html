@@ -1,0 +1,1160 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mercado - La Liga El Rancho 2025/2026</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f2f5;
+        }
+        .tab-active {
+            border-bottom-color: #3b82f6;
+            color: #3b82f6;
+            font-weight: 600;
+        }
+        .modal-backdrop {
+            background-color: rgba(0, 0, 0, 0.5);
+        }
+        .animate-pulse-once {
+            animation: pulse 1s cubic-bezier(0.4, 0, 0.6, 1);
+        }
+        @keyframes pulse {
+            50% {
+                opacity: .5;
+            }
+        }
+        .trade-player-label {
+            transition: all 0.2s ease-in-out;
+        }
+        .trade-player-input:checked + .trade-player-label {
+            background-color: #dbeafe; /* blue-100 */
+            border-color: #3b82f6; /* blue-500 */
+            transform: scale(1.02);
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+
+    <div id="app" class="container mx-auto p-4 max-w-5xl">
+
+        <!-- Header -->
+        <header class="bg-white rounded-xl shadow-md p-6 mb-6 text-center">
+            <h1 class="text-3xl font-bold text-gray-800">La Liga El Rancho 2025/2026</h1>
+            <p class="text-blue-600 font-semibold">Plataforma de Mercado</p>
+        </header>
+
+        <!-- Manager Selection -->
+        <div id="manager-selection" class="bg-white rounded-xl shadow-md p-6 mb-6">
+            <label for="manager-select" class="block text-lg font-medium text-gray-700 mb-2">Selecciona tu equipo:</label>
+            <select id="manager-select" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition">
+                <option value="">-- Elige tu manager --</option>
+            </select>
+        </div>
+
+        <!-- Main Content (Hidden until manager is selected) -->
+        <main id="main-content" class="hidden">
+            <!-- Tabs -->
+            <div class="mb-6">
+                <div class="border-b border-gray-200">
+                    <nav class="-mb-px flex space-x-2 md:space-x-6" aria-label="Tabs">
+                        <button onclick="showTab('squad')" class="tab py-4 px-1 border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 text-sm md:text-base font-medium transition" id="tab-squad"><i class="fas fa-users mr-2"></i>Mi Plantilla</button>
+                        <button onclick="showTab('market')" class="tab py-4 px-1 border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 text-sm md:text-base font-medium transition" id="tab-market"><i class="fas fa-store mr-2"></i>Mercado</button>
+                        <button onclick="showTab('auctions')" class="tab py-4 px-1 border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 text-sm md:text-base font-medium transition" id="tab-auctions"><i class="fas fa-gavel mr-2"></i>Subastas</button>
+                        <button onclick="showTab('trades')" class="tab py-4 px-1 border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 text-sm md:text-base font-medium transition" id="tab-trades"><i class="fas fa-exchange-alt mr-2"></i>Intercambios</button>
+                    </nav>
+                </div>
+            </div>
+
+            <!-- Tab Content -->
+            <div id="tab-content-squad" class="tab-content"></div>
+            <div id="tab-content-market" class="tab-content hidden"></div>
+            <div id="tab-content-auctions" class="tab-content hidden"></div>
+            <div id="tab-content-trades" class="tab-content hidden"></div>
+        </main>
+        
+        <!-- Loading Spinner -->
+        <div id="loading-spinner" class="hidden text-center p-8">
+            <i class="fas fa-spinner fa-spin fa-3x text-blue-500"></i>
+            <p class="mt-4 text-gray-600">Cargando datos de la liga...</p>
+        </div>
+
+    </div>
+
+    <!-- Modal Template -->
+    <div id="modal-container" class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop hidden">
+        <div id="modal-content" class="bg-white rounded-xl shadow-2xl w-full max-w-lg transform transition-all" style="max-height: 90vh; overflow-y: auto;">
+            <!-- Modal content will be injected here -->
+        </div>
+    </div>
+
+
+    <!-- Firebase -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getFirestore, setDoc, getDoc, doc, collection, onSnapshot, addDoc, updateDoc, deleteDoc, writeBatch, query, where, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+
+        // =================================================================================
+        // CLAVES SECRETAS DE MANAGERS - DISTRIBUIR ESTAS CLAVES A CADA MANAGER
+        // =================================================================================
+        const managerKeys = {
+            'alcatamy-esports-by-rolex': 'ALCA-2025',
+            'vigar-fc': 'VIGA-2025',
+            'baena10': 'BA10-2025',
+            'dubai-city-fc': 'DUBA-2025',
+            'visite-la-manga-fc': 'MANGA-2025',
+            'morenazos-fc': 'MORE-2025'
+        };
+        // =================================================================================
+
+        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+
+        let currentManagerId = null;
+        let managers = [];
+        let allPlayers = [];
+        let marketItems = [];
+        let auctionItems = [];
+        let tradeItems = [];
+
+        const basePath = `artifacts/${appId}/public/data`;
+        const managersPath = `${basePath}/managers`;
+        const playersPath = `${basePath}/players`;
+        const marketPath = `${basePath}/market`;
+        const auctionsPath = `${basePath}/auctions`;
+        const tradesPath = `${basePath}/trades`;
+
+        const managerNames = ["Alcatamy eSports by Rolex", "Vigar FC", "Baena10", "Dubai cITY FC", "Visite La Manga FC", "Morenazos FC"];
+        const positions = ["POR", "DEF", "MED", "DEL"];
+        
+        async function initializeAppLogic() {
+            document.getElementById('loading-spinner').classList.remove('hidden');
+            try {
+                const token = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+                if (token) {
+                    await signInWithCustomToken(auth, token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+                await setupInitialData();
+                listenToAllChanges();
+            } catch (error) {
+                console.error("Error en la inicialización:", error);
+                showMessageModal('Error de Conexión', `No se pudo conectar con la base de datos. Por favor, refresca la página. (${error.message})`, 'fa-exclamation-triangle text-red-500');
+            } finally {
+                document.getElementById('loading-spinner').classList.add('hidden');
+            }
+        }
+
+        async function setupInitialData() {
+            const managersRef = collection(db, managersPath);
+            const managersSnapshot = await getDocs(managersRef);
+            if (managersSnapshot.empty) {
+                console.log("Creando managers iniciales...");
+                const batch = writeBatch(db);
+                managerNames.forEach(name => {
+                    const id = name.toLowerCase().replace(/\s+/g, '-');
+                    batch.set(doc(db, managersPath, id), { name: name });
+                });
+                await batch.commit();
+            }
+        }
+
+        function listenToAllChanges() {
+            onSnapshot(collection(db, managersPath), snapshot => {
+                managers = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                populateManagerSelect();
+                if (currentManagerId) renderAllTabs();
+            });
+            onSnapshot(collection(db, playersPath), snapshot => {
+                allPlayers = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                if (currentManagerId) renderAllTabs();
+            });
+            onSnapshot(collection(db, marketPath), snapshot => {
+                marketItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                if(currentManagerId) { renderMarketTab(); renderSquadTab(); }
+            });
+            onSnapshot(collection(db, auctionsPath), snapshot => {
+                auctionItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                if(currentManagerId) { renderAuctionsTab(); renderSquadTab(); }
+            });
+            onSnapshot(collection(db, tradesPath), snapshot => {
+                tradeItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                if(currentManagerId) { renderTradesTab(); renderSquadTab(); }
+            });
+        }
+        
+        function populateManagerSelect() {
+            const select = document.getElementById('manager-select');
+            const currentSelection = select.value;
+            select.innerHTML = '<option value="">-- Elige tu manager --</option>';
+            managers.sort((a,b) => a.name.localeCompare(b.name)).forEach(manager => {
+                const option = document.createElement('option');
+                option.value = manager.id;
+                option.textContent = manager.name;
+                select.appendChild(option);
+            });
+            select.value = currentSelection;
+        }
+
+        document.getElementById('manager-select').addEventListener('change', (e) => {
+            const selectedManagerId = e.target.value;
+            if (selectedManagerId) {
+                openKeyPromptModal(selectedManagerId);
+            } else {
+                currentManagerId = null;
+                document.getElementById('main-content').classList.add('hidden');
+            }
+        });
+        
+        window.showTab = (tabName) => {
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.add('hidden'));
+            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('tab-active'));
+            document.getElementById(`tab-content-${tabName}`).classList.remove('hidden');
+            document.getElementById(`tab-${tabName}`).classList.add('tab-active');
+            renderAllTabs();
+        }
+
+        function renderAllTabs() {
+            if (!currentManagerId) return;
+            renderSquadTab();
+            renderMarketTab();
+            renderAuctionsTab();
+            renderTradesTab();
+        }
+
+        function getPlayerStatus(playerId) {
+            if (marketItems.some(item => item.playerId === playerId)) return { status: 'market', text: 'EN VENTA', class: 'bg-blue-500' };
+            if (auctionItems.some(item => item.playerId === playerId)) return { status: 'auction', text: 'SUBASTA', class: 'bg-red-500' };
+            if (tradeItems.some(trade => (trade.proposerPlayers.includes(playerId) || trade.receiverPlayers.includes(playerId)) && trade.status === 'pending')) return { status: 'trade', text: 'EN INTERCAMBIO', class: 'bg-purple-500' };
+            return null;
+        }
+
+        function renderSquadTab() {
+            const container = document.getElementById('tab-content-squad');
+            const myPlayers = allPlayers.filter(p => p.ownerId === currentManagerId);
+            
+            container.innerHTML = `
+                <div class="bg-white rounded-xl shadow-md overflow-hidden">
+                    <div class="p-4 border-b grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <button onclick="openTradeModal()" class="w-full bg-purple-600 text-white px-4 py-3 rounded-lg font-semibold hover:bg-purple-700 transition shadow-md flex items-center justify-center text-lg">
+                            <i class="fas fa-exchange-alt mr-3"></i>Proponer Intercambio
+                        </button>
+                        <button onclick="openEditSquadModal()" class="w-full bg-green-600 text-white px-4 py-3 rounded-lg font-semibold hover:bg-green-700 transition shadow-md flex items-center justify-center text-lg">
+                            <i class="fas fa-edit mr-3"></i>Editar Plantilla
+                        </button>
+                    </div>
+                    <ul class="divide-y divide-gray-200">
+                        ${myPlayers.length === 0 ? `<li class="p-8 text-center text-gray-500">Tu plantilla está vacía. Añade jugadores desde "Editar Plantilla".</li>` : 
+                        myPlayers.map(player => {
+                            const status = getPlayerStatus(player.id);
+                            return `
+                            <li class="p-4 flex items-center justify-between hover:bg-gray-50 transition">
+                                <div class="flex items-center">
+                                    <p class="font-semibold text-lg text-gray-800">${player.name}</p>
+                                    ${status ? `<span class="ml-3 px-2 py-1 text-xs font-semibold text-white ${status.class} rounded-full">${status.text}</span>` : ''}
+                                </div>
+                                <div class="flex items-center space-x-2">
+                                    <p class="text-sm text-gray-500 hidden md:block">${player.position} - ${formatCurrency(player.value)}</p>
+                                    <button ${status ? 'disabled' : ''} onclick="openSellModal('${player.id}')" class="bg-blue-500 text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-blue-600 transition shadow disabled:opacity-50 disabled:cursor-not-allowed" title="Vender"><i class="fas fa-dollar-sign"></i></button>
+                                    <button ${status ? 'disabled' : ''} onclick="openAuctionModal('${player.id}')" class="bg-red-500 text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-red-600 transition shadow disabled:opacity-50 disabled:cursor-not-allowed" title="Subastar"><i class="fas fa-gavel"></i></button>
+                                </div>
+                            </li>
+                        `}).join('')}
+                    </ul>
+                </div>
+            `;
+        }
+
+        async function renderMarketTab() {
+            const container = document.getElementById('tab-content-market');
+            
+            if (marketItems.length === 0) {
+                container.innerHTML = `<div class="text-center p-8 bg-white rounded-xl shadow-md"><p class="text-gray-500">El mercado está tranquilo... de momento.</p></div>`;
+                return;
+            }
+
+            let html = '<div class="space-y-4">';
+            for (const item of marketItems) {
+                const offersSnapshot = await getDocs(collection(db, `${marketPath}/${item.id}/offers`));
+                const offers = offersSnapshot.docs.map(doc => ({id: doc.id, ...doc.data()}));
+
+                html += `
+                    <div class="bg-white rounded-xl shadow-md p-4 animate-pulse-once">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="font-bold text-xl text-gray-800">${item.playerName}</p>
+                                <p class="text-sm text-gray-500">Vendido por: ${item.sellerName}</p>
+                                <p class="text-lg font-semibold text-green-600 mt-1">Precio: ${formatCurrency(item.price)}</p>
+                            </div>
+                            ${item.sellerId !== currentManagerId ? `
+                            <button onclick="openOfferModal('${item.id}')" class="bg-green-500 text-white px-4 py-2 rounded-lg font-medium hover:bg-green-600 transition shadow-md">Hacer Oferta</button>
+                            ` : `
+                            <button onclick="cancelSale('${item.id}')" class="bg-gray-500 text-white px-4 py-2 rounded-lg font-medium hover:bg-gray-600 transition shadow-md">Retirar</button>
+                            `}
+                        </div>
+                        ${item.sellerId === currentManagerId ? `
+                        <div class="mt-4 border-t pt-4">
+                            <h4 class="font-semibold mb-2">Ofertas recibidas:</h4>
+                            ${offers.length > 0 ? `
+                                <ul class="space-y-2">
+                                    ${offers.map(offer => `
+                                        <li class="p-2 bg-gray-100 rounded-lg flex justify-between items-center">
+                                            <div>
+                                                <p><span class="font-medium">${offer.buyerName}</span> ofrece <span class="font-semibold text-green-700">${formatCurrency(offer.amount)}</span></p>
+                                            </div>
+                                            <button onclick="acceptOffer('${item.id}', '${offer.id}')" class="bg-blue-500 text-white px-3 py-1 text-sm rounded-md hover:bg-blue-600">Aceptar</button>
+                                        </li>
+                                    `).join('')}
+                                </ul>
+                            ` : `<p class="text-sm text-gray-500">Aún no hay ofertas.</p>`}
+                        </div>
+                        ` : ''}
+                    </div>
+                `;
+            }
+            html += '</div>';
+            container.innerHTML = html;
+        }
+
+        async function renderAuctionsTab() {
+            const container = document.getElementById('tab-content-auctions');
+
+            if (auctionItems.length === 0) {
+                container.innerHTML = `<div class="text-center p-8 bg-white rounded-xl shadow-md"><p class="text-gray-500">No hay subastas activas.</p></div>`;
+                return;
+            }
+
+            let html = '<div class="space-y-4">';
+            for (const item of auctionItems) {
+                const bidsSnapshot = await getDocs(collection(db, `${auctionsPath}/${item.id}/bids`));
+                const bids = bidsSnapshot.docs.map(doc => doc.data()).sort((a, b) => b.amount - a.amount);
+                const highestBid = bids[0] || { amount: item.startPrice, bidderName: 'Sin pujas' };
+                
+                const endTime = item.endTime.toDate();
+                const now = new Date();
+                const timeLeft = Math.max(0, endTime - now);
+                const isFinished = timeLeft === 0;
+
+                html += `
+                    <div class="bg-white rounded-xl shadow-md p-4 ${isFinished ? 'opacity-60' : ''}">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="font-bold text-xl text-gray-800">${item.playerName}</p>
+                                <p class="text-sm text-gray-500">Subastado por: ${item.sellerName}</p>
+                            </div>
+                            <div class="text-right">
+                                <p class="text-sm font-medium ${isFinished ? 'text-red-500' : 'text-blue-500'}">${isFinished ? 'Finalizada' : formatTimeLeft(timeLeft)}</p>
+                                ${isFinished && item.sellerId === currentManagerId && highestBid.bidderName !== 'Sin pujas' ? `
+                                    <button onclick="finalizeAuction('${item.id}')" class="mt-1 bg-green-500 text-white px-3 py-1 rounded-lg text-sm font-medium hover:bg-green-600">Finalizar Traspaso</button>
+                                ` : ''}
+                                ${isFinished && highestBid.bidderName === 'Sin pujas' && item.sellerId === currentManagerId ? `
+                                    <button onclick="cancelAuction('${item.id}')" class="mt-1 bg-gray-500 text-white px-3 py-1 rounded-lg text-sm font-medium hover:bg-gray-600">Cerrar</button>
+                                ` : ''}
+                            </div>
+                        </div>
+                        <div class="mt-4 border-t pt-4">
+                            <p class="text-lg">Puja actual: <span class="font-bold text-green-600">${formatCurrency(highestBid.amount)}</span></p>
+                            <p class="text-sm text-gray-600">Pujador: ${highestBid.bidderName}</p>
+                            ${!isFinished && item.sellerId !== currentManagerId ? `
+                            <div class="mt-3 flex space-x-2">
+                                <input type="number" id="bid-amount-${item.id}" class="w-full p-2 border rounded-lg" placeholder="Tu puja (mín. ${formatCurrency(highestBid.amount + 1)})" min="${highestBid.amount + 1}">
+                                <button onclick="placeBid('${item.id}')" class="bg-red-500 text-white px-4 py-2 rounded-lg font-medium hover:bg-red-600">Pujar</button>
+                            </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                `;
+            }
+            html += '</div>';
+            container.innerHTML = html;
+            setInterval(renderAuctionsTab, 60000); 
+        }
+
+        function renderTradesTab() {
+            const container = document.getElementById('tab-content-trades');
+            const sentTrades = tradeItems.filter(t => t.proposerId === currentManagerId && t.status === 'pending');
+            const receivedTrades = tradeItems.filter(t => t.receiverId === currentManagerId && t.status === 'pending');
+
+            const renderTradeCard = (trade, type) => {
+                const otherManagerName = type === 'sent' ? trade.receiverName : trade.proposerName;
+                const myPlayers = type === 'sent' ? trade.proposerPlayers : trade.receiverPlayers;
+                const otherPlayers = type === 'sent' ? trade.receiverPlayers : trade.proposerPlayers;
+
+                const getPlayerName = (id) => allPlayers.find(p => p.id === id)?.name || 'Jugador no encontrado';
+
+                return `
+                    <div class="bg-white rounded-xl shadow-md p-4">
+                        <p class="text-sm text-gray-500 mb-2">Propuesta ${type === 'sent' ? 'a' : 'de'} <span class="font-bold">${otherManagerName}</span></p>
+                        <div class="grid grid-cols-2 gap-4 border-t border-b py-3 my-2">
+                            <div>
+                                <p class="font-semibold">Tú ofreces:</p>
+                                <ul class="list-disc list-inside text-sm mt-1">
+                                    ${myPlayers.map(id => `<li>${getPlayerName(id)}</li>`).join('')}
+                                    ${trade.cashFromProposer > 0 ? `<li>${formatCurrency(trade.cashFromProposer)}</li>` : ''}
+                                </ul>
+                                ${myPlayers.length === 0 && trade.cashFromProposer === 0 ? `<p class="text-sm text-gray-400">Nada</p>`: ''}
+                            </div>
+                            <div>
+                                <p class="font-semibold">Recibes:</p>
+                                <ul class="list-disc list-inside text-sm mt-1">
+                                    ${otherPlayers.map(id => `<li>${getPlayerName(id)}</li>`).join('')}
+                                    ${trade.cashFromReceiver > 0 ? `<li>${formatCurrency(trade.cashFromReceiver)}</li>` : ''}
+                                </ul>
+                                 ${otherPlayers.length === 0 && trade.cashFromReceiver === 0 ? `<p class="text-sm text-gray-400">Nada</p>`: ''}
+                            </div>
+                        </div>
+                        <div class="flex justify-end space-x-2 mt-2">
+                            ${type === 'received' ? `
+                                <button onclick="rejectTrade('${trade.id}')" class="px-3 py-1 bg-red-500 text-white rounded-lg hover:bg-red-600 text-sm">Rechazar</button>
+                                <button onclick="acceptTrade('${trade.id}')" class="px-3 py-1 bg-green-500 text-white rounded-lg hover:bg-green-600 text-sm">Aceptar</button>
+                            ` : `
+                                <button onclick="cancelTrade('${trade.id}')" class="px-3 py-1 bg-gray-500 text-white rounded-lg hover:bg-gray-600 text-sm">Cancelar</button>
+                            `}
+                        </div>
+                    </div>
+                `;
+            };
+
+            container.innerHTML = `
+                <div class="space-y-6">
+                    <div>
+                        <h3 class="text-xl font-bold mb-3">Propuestas Recibidas</h3>
+                        <div class="space-y-4">
+                            ${receivedTrades.length > 0 ? receivedTrades.map(t => renderTradeCard(t, 'received')).join('') : '<p class="text-gray-500 bg-white p-4 rounded-xl shadow-md">No tienes ninguna propuesta de intercambio pendiente.</p>'}
+                        </div>
+                    </div>
+                    <div>
+                        <h3 class="text-xl font-bold mb-3">Propuestas Enviadas</h3>
+                         <div class="space-y-4">
+                            ${sentTrades.length > 0 ? sentTrades.map(t => renderTradeCard(t, 'sent')).join('') : '<p class="text-gray-500 bg-white p-4 rounded-xl shadow-md">No has enviado ninguna propuesta.</p>'}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        window.openEditSquadModal = () => {
+            const content = `
+                <div class="p-6">
+                    <h3 class="text-2xl font-bold mb-4 text-center">Editar Plantilla</h3>
+                    <div class="bg-gray-100 p-4 rounded-lg">
+                        <h4 class="font-semibold mb-2">Añadir Nuevo Jugador</h4>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                            <input type="text" id="new-player-name" placeholder="Nombre del Jugador" class="p-2 border rounded-lg col-span-1 md:col-span-2">
+                            <input type="number" id="new-player-value" placeholder="Valor (ej: 15000000)" class="p-2 border rounded-lg">
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
+                            <select id="new-player-position" class="p-2 border rounded-lg">
+                                ${positions.map(p => `<option value="${p}">${p}</option>`).join('')}
+                            </select>
+                            <button onclick="addPlayerToSquad()" class="bg-blue-500 text-white p-2 rounded-lg hover:bg-blue-600 font-semibold">Añadir Jugador</button>
+                        </div>
+                    </div>
+                    <div id="edit-squad-list-container" class="mt-4">
+                        <h4 class="font-semibold mb-2">Plantilla Actual</h4>
+                        <div class="max-h-60 overflow-y-auto border rounded-lg"></div>
+                    </div>
+                    <div class="mt-6 flex justify-end">
+                        <button onclick="closeModal()" class="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 font-bold">Cerrar</button>
+                    </div>
+                </div>
+            `;
+            openModal(content);
+            renderEditSquadList();
+        };
+
+        function renderEditSquadList() {
+            const myPlayers = allPlayers.filter(p => p.ownerId === currentManagerId);
+            const listContainer = document.querySelector('#edit-squad-list-container > div');
+            if (!listContainer) return;
+
+            if (myPlayers.length === 0) {
+                listContainer.innerHTML = '<p class="text-center text-gray-500 p-4">No tienes jugadores.</p>';
+                return;
+            }
+            listContainer.innerHTML = `
+                <ul class="divide-y divide-gray-200">
+                    ${myPlayers.map(p => `
+                        <li class="p-2 flex justify-between items-center hover:bg-gray-50">
+                            <div>
+                                <p class="font-semibold">${p.name}</p>
+                                <p class="text-sm text-gray-600">${p.position} - ${formatCurrency(p.value)}</p>
+                            </div>
+                            <button onclick="deletePlayerFromSquad('${p.id}', '${p.name}')" class="text-red-500 hover:text-red-700 px-3 py-1" title="Eliminar a ${p.name}"><i class="fas fa-trash-alt"></i></button>
+                        </li>
+                    `).join('')}
+                </ul>
+            `;
+        }
+        
+        window.addPlayerToSquad = async () => {
+            const nameInput = document.getElementById('new-player-name');
+            const valueInput = document.getElementById('new-player-value');
+            const positionSelect = document.getElementById('new-player-position');
+
+            const name = nameInput.value.trim();
+            const value = Number(valueInput.value);
+            const position = positionSelect.value;
+
+            if (!name || !value || value <= 0) {
+                showMessageModal('Datos incompletos', 'Por favor, introduce un nombre y un valor válido para el jugador.', 'fa-exclamation-circle text-yellow-500');
+                return;
+            }
+            
+            const manager = managers.find(m => m.id === currentManagerId);
+            try {
+                await addDoc(collection(db, playersPath), {
+                    name,
+                    position,
+                    value,
+                    ownerId: manager.id,
+                    ownerName: manager.name
+                });
+                nameInput.value = '';
+                valueInput.value = '';
+                nameInput.focus();
+                // The onSnapshot listener will automatically re-render the list
+            } catch (e) {
+                console.error("Error al añadir jugador:", e);
+                showMessageModal('Error', 'No se pudo añadir el jugador.', 'fa-times-circle text-red-500');
+            }
+        };
+
+        window.deletePlayerFromSquad = (playerId, playerName) => {
+            showConfirmationModal(`Eliminar a ${playerName}`, `¿Seguro que quieres eliminar a este jugador de tu plantilla? Esta acción es irreversible.`, async () => {
+                try {
+                    await deleteDoc(doc(db, playersPath, playerId));
+                    // The onSnapshot listener will automatically re-render the list
+                } catch(e) {
+                    console.error("Error al eliminar jugador:", e);
+                    showMessageModal('Error', 'No se pudo eliminar el jugador.', 'fa-times-circle text-red-500');
+                }
+            });
+        }
+        
+        function openModal(content) {
+            document.getElementById('modal-content').innerHTML = content;
+            document.getElementById('modal-container').classList.remove('hidden');
+        }
+        window.closeModal = () => {
+            document.getElementById('modal-container').classList.add('hidden');
+            document.getElementById('modal-content').innerHTML = '';
+        }
+        function showMessageModal(title, message, iconClass = 'fa-info-circle text-blue-500', customButton = null) {
+            const buttonHtml = customButton ? customButton : `<button onclick="closeModal()" class="mt-6 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 w-full">Entendido</button>`;
+            const content = `
+                <div class="p-6 text-center">
+                    <i class="fas ${iconClass} fa-3x mb-4"></i>
+                    <h3 class="text-xl font-semibold mb-2">${title}</h3>
+                    <p class="text-gray-600">${message}</p>
+                    <div class="mt-6">
+                        ${buttonHtml}
+                    </div>
+                </div>
+            `;
+            openModal(content);
+        }
+        function showConfirmationModal(title, message, onConfirm) {
+            window.confirmAction = () => {
+                onConfirm();
+                closeModal();
+                delete window.confirmAction;
+            };
+            
+            const content = `
+                <div class="p-6">
+                    <h3 class="text-xl font-semibold mb-2">${title}</h3>
+                    <p class="text-gray-600 mb-6">${message}</p>
+                    <div class="flex justify-end space-x-3">
+                        <button onclick="closeModal()" class="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300">Cancelar</button>
+                        <button onclick="window.confirmAction()" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">Confirmar</button>
+                    </div>
+                </div>
+            `;
+            openModal(content);
+        }
+        
+        window.openKeyPromptModal = (managerId) => {
+            const manager = managers.find(m => m.id === managerId);
+            const content = `
+                <div class="p-6">
+                    <h3 class="text-xl font-semibold mb-4">Identificación de Manager</h3>
+                    <p class="mb-4 text-gray-600">Introduce la clave para <span class="font-bold">${manager.name}</span>.</p>
+                    <input type="password" id="manager-key-input" class="w-full p-2 border rounded-lg" placeholder="Clave secreta">
+                    <div class="mt-6 flex justify-end space-x-3">
+                        <button onclick="cancelLogin()" class="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300">Cancelar</button>
+                        <button onclick="verifyManagerKey('${managerId}')" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Entrar</button>
+                    </div>
+                </div>
+            `;
+            openModal(content);
+            document.getElementById('manager-key-input').focus();
+        }
+
+        window.cancelLogin = () => {
+            document.getElementById('manager-select').value = '';
+            closeModal();
+        }
+
+        window.verifyManagerKey = (managerId) => {
+            const correctKey = managerKeys[managerId];
+            const inputKey = document.getElementById('manager-key-input').value;
+            if (inputKey === correctKey) {
+                currentManagerId = managerId;
+                document.getElementById('main-content').classList.remove('hidden');
+                closeModal();
+                showTab('squad');
+            } else {
+                showMessageModal('Clave Incorrecta', 'La clave introducida no es correcta. Inténtalo de nuevo.', 'fa-times-circle text-red-500');
+                document.getElementById('manager-select').value = '';
+            }
+        }
+
+        window.openSellModal = (playerId) => {
+            const player = allPlayers.find(p => p.id === playerId);
+            const content = `
+                <div class="p-6">
+                    <h3 class="text-xl font-semibold mb-4">Poner a la venta a ${player.name}</h3>
+                    <p class="mb-4 text-gray-600">Establece un precio de venta. Otros managers podrán hacerte ofertas.</p>
+                    <label for="sell-price" class="block text-sm font-medium text-gray-700">Precio de venta</label>
+                    <input type="number" id="sell-price" class="mt-1 w-full p-2 border rounded-lg" value="${player.value}" min="1">
+                    <div class="mt-6 flex justify-end space-x-3">
+                        <button onclick="closeModal()" class="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300">Cancelar</button>
+                        <button onclick="listPlayerForSale('${playerId}')" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Confirmar</button>
+                    </div>
+                </div>
+            `;
+            openModal(content);
+        }
+        
+        window.openAuctionModal = (playerId) => {
+            const player = allPlayers.find(p => p.id === playerId);
+            const content = `
+                <div class="p-6">
+                    <h3 class="text-xl font-semibold mb-4">Subastar a ${player.name}</h3>
+                    <p class="mb-4 text-gray-600">El jugador se ofrecerá al mejor postor. La subasta durará 24 horas.</p>
+                    <label for="start-price" class="block text-sm font-medium text-gray-700">Precio de salida</label>
+                    <input type="number" id="start-price" class="mt-1 w-full p-2 border rounded-lg" value="${player.value}" min="1">
+                    <div class="mt-6 flex justify-end space-x-3">
+                        <button onclick="closeModal()" class="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300">Cancelar</button>
+                        <button onclick="listPlayerForAuction('${playerId}')" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">Iniciar Subasta</button>
+                    </div>
+                </div>
+            `;
+            openModal(content);
+        }
+
+        window.openOfferModal = (marketId) => {
+            const content = `
+                <div class="p-6">
+                    <h3 class="text-xl font-semibold mb-4">Hacer una oferta</h3>
+                    <label for="offer-amount" class="block text-sm font-medium text-gray-700">Tu oferta</label>
+                    <input type="number" id="offer-amount" class="mt-1 w-full p-2 border rounded-lg" min="1">
+                    <div class="mt-6 flex justify-end space-x-3">
+                        <button onclick="closeModal()" class="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300">Cancelar</button>
+                        <button onclick="submitOffer('${marketId}')" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">Enviar Oferta</button>
+                    </div>
+                </div>
+            `;
+            openModal(content);
+        }
+
+        window.openTradeModal = () => {
+            const otherManagers = managers.filter(m => m.id !== currentManagerId);
+            const myAvailablePlayers = allPlayers.filter(p => p.ownerId === currentManagerId && !getPlayerStatus(p.id));
+
+            const content = `
+                <div class="p-6">
+                    <h3 class="text-2xl font-bold mb-4 text-center">Proponer Intercambio</h3>
+                    
+                    <div class="mb-4">
+                        <label for="trade-target-manager" class="block text-sm font-medium text-gray-700 mb-1">1. Elige un manager para negociar:</label>
+                        <select id="trade-target-manager" class="w-full p-2 border rounded-lg">
+                            <option value="">-- Seleccionar Manager --</option>
+                            ${otherManagers.map(m => `<option value="${m.id}">${m.name}</option>`).join('')}
+                        </select>
+                    </div>
+
+                    <div id="trade-players-section" class="hidden grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <p class="font-semibold mb-2">2. Jugadores que ofreces:</p>
+                            <div id="my-players-list" class="space-y-2 max-h-48 overflow-y-auto p-2 border rounded-lg">
+                                ${myAvailablePlayers.map(p => `
+                                    <div>
+                                        <input type="checkbox" id="my-player-${p.id}" value="${p.id}" data-value="${p.value}" class="hidden trade-player-input">
+                                        <label for="my-player-${p.id}" class="trade-player-label block w-full p-2 border rounded-lg cursor-pointer hover:bg-gray-100 flex justify-between">
+                                            <span>${p.name}</span> <span class="text-sm text-gray-500">${formatCurrency(p.value)}</span>
+                                        </label>
+                                    </div>
+                                `).join('')}
+                            </div>
+                            <input type="number" id="my-cash-offer" placeholder="Añadir dinero (opcional)" class="mt-2 w-full p-2 border rounded-lg">
+                            <p class="text-right font-bold mt-2">Total: <span id="my-trade-total" class="text-green-600">${formatCurrency(0)}</span></p>
+                        </div>
+                        <div>
+                            <p class="font-semibold mb-2">3. Jugadores que pides:</p>
+                            <div id="their-players-list" class="space-y-2 max-h-48 overflow-y-auto p-2 border rounded-lg bg-gray-100">
+                                <p class="text-sm text-gray-500">Selecciona un manager primero</p>
+                            </div>
+                            <input type="number" id="their-cash-offer" placeholder="Pedir dinero (opcional)" class="mt-2 w-full p-2 border rounded-lg">
+                             <p class="text-right font-bold mt-2">Total: <span id="their-trade-total" class="text-green-600">${formatCurrency(0)}</span></p>
+                        </div>
+                    </div>
+
+                    <div class="mt-6 flex justify-end space-x-3">
+                        <button onclick="closeModal()" class="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300">Cancelar</button>
+                        <button id="submit-trade-btn" onclick="submitTrade()" class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50" disabled>Proponer</button>
+                    </div>
+                </div>
+            `;
+            openModal(content);
+
+            const setupTradeListeners = () => {
+                document.getElementById('my-players-list').addEventListener('change', () => calculateTradeValue('my'));
+                document.getElementById('my-cash-offer').addEventListener('input', () => calculateTradeValue('my'));
+                document.getElementById('their-players-list').addEventListener('change', () => calculateTradeValue('their'));
+                document.getElementById('their-cash-offer').addEventListener('input', () => calculateTradeValue('their'));
+            };
+
+            document.getElementById('trade-target-manager').addEventListener('change', (e) => {
+                const targetManagerId = e.target.value;
+                const theirPlayersList = document.getElementById('their-players-list');
+                const submitBtn = document.getElementById('submit-trade-btn');
+                if (targetManagerId) {
+                    const theirAvailablePlayers = allPlayers.filter(p => p.ownerId === targetManagerId && !getPlayerStatus(p.id));
+                    theirPlayersList.innerHTML = theirAvailablePlayers.length > 0 ? theirAvailablePlayers.map(p => `
+                        <div>
+                            <input type="checkbox" id="their-player-${p.id}" value="${p.id}" data-value="${p.value}" class="hidden trade-player-input">
+                            <label for="their-player-${p.id}" class="trade-player-label block w-full p-2 border rounded-lg cursor-pointer bg-white hover:bg-gray-100 flex justify-between">
+                                <span>${p.name}</span> <span class="text-sm text-gray-500">${formatCurrency(p.value)}</span>
+                            </label>
+                        </div>
+                    `).join('') : '<p class="text-sm text-gray-500">Este manager no tiene jugadores disponibles.</p>';
+                    document.getElementById('trade-players-section').classList.remove('hidden');
+                    submitBtn.disabled = false;
+                    calculateTradeValue('my');
+                    calculateTradeValue('their');
+                } else {
+                    theirPlayersList.innerHTML = '<p class="text-sm text-gray-500">Selecciona un manager primero</p>';
+                    document.getElementById('trade-players-section').classList.add('hidden');
+                    submitBtn.disabled = true;
+                }
+            });
+            setupTradeListeners();
+        }
+
+        window.calculateTradeValue = (side) => {
+            const playerList = document.getElementById(`${side}-players-list`);
+            const cashInput = document.getElementById(`${side}-cash-offer`);
+            const totalSpan = document.getElementById(`${side}-trade-total`);
+
+            let playersValue = 0;
+            playerList.querySelectorAll('input:checked').forEach(checkbox => {
+                playersValue += Number(checkbox.dataset.value);
+            });
+            
+            const cashValue = Number(cashInput.value) || 0;
+            totalSpan.textContent = formatCurrency(playersValue + cashValue);
+        }
+
+        window.generateContractText = (type, data) => {
+            const now = new Date();
+            const date = now.toLocaleDateString('es-ES');
+            const time = now.toLocaleTimeString('es-ES');
+            let text = `
+==================================================
+        CONTRATO OFICIAL DE TRASPASO
+        LIGA EL RANCHO 2025/2026
+==================================================
+
+FECHA: ${date} a las ${time}
+
+TIPO DE MOVIMIENTO: ${type.toUpperCase()}
+
+DETALLES DE LA OPERACIÓN:
+--------------------------------------------------
+`;
+
+            if (type === 'Venta') {
+                text += `
+EQUIPO VENDEDOR: ${data.sellerName}
+EQUIPO COMPRADOR: ${data.buyerName}
+
+JUGADOR TRASPASADO: ${data.playerName}
+
+IMPORTE FINAL: ${formatCurrency(data.amount)}
+`;
+            } else if (type === 'Subasta') {
+                 text += `
+EQUIPO VENDEDOR: ${data.sellerName}
+EQUIPO COMPRADOR (GANADOR PUJA): ${data.winnerName}
+
+JUGADOR TRASPASADO: ${data.playerName}
+
+IMPORTE FINAL DE LA SUBASTA: ${formatCurrency(data.amount)}
+`;
+            } else if (type === 'Intercambio') {
+                 text += `
+EQUIPO PROPONENTE (A): ${data.proposerName}
+EQUIPO RECEPTOR (B): ${data.receiverName}
+
+ACUERDO:
+  - El Equipo A traspasa al Equipo B:
+${data.proposerPlayers.map(p => `    * ${p.name} (${formatCurrency(p.value)})`).join('\n')}
+${data.cashFromProposer > 0 ? `    * ${formatCurrency(data.cashFromProposer)} en efectivo` : ''}
+
+  - El Equipo B traspasa al Equipo A:
+${data.receiverPlayers.map(p => `    * ${p.name} (${formatCurrency(p.value)})`).join('\n')}
+${data.cashFromReceiver > 0 ? `    * ${formatCurrency(data.cashFromReceiver)} en efectivo` : ''}
+`;
+            }
+
+            text += `
+--------------------------------------------------
+Este documento certifica el acuerdo entre las partes
+y la transferencia de los activos mencionados.
+
+(Firmado digitalmente por la Plataforma de Mercado)
+`;
+            return text;
+        }
+
+        window.downloadContract = (encodedText, filename) => {
+            const text = decodeURIComponent(encodedText);
+            const blob = new Blob([text], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        window.listPlayerForSale = async (playerId) => {
+            const price = document.getElementById('sell-price').value;
+            if (!price || price <= 0) {
+                showMessageModal('Precio Inválido', 'Por favor, introduce un precio válido.', 'fa-exclamation-circle text-yellow-500');
+                return;
+            }
+            
+            const player = allPlayers.find(p => p.id === playerId);
+            const seller = managers.find(m => m.id === currentManagerId);
+
+            try {
+                await addDoc(collection(db, marketPath), {
+                    playerId: player.id,
+                    playerName: player.name,
+                    sellerId: seller.id,
+                    sellerName: seller.name,
+                    price: Number(price)
+                });
+                closeModal();
+                showMessageModal('¡Éxito!', `${player.name} ha sido puesto en el mercado.`, 'fa-check-circle text-green-500');
+            } catch(e) {
+                console.error("Error al poner en venta: ", e);
+                showMessageModal('Error', 'Hubo un error al procesar tu petición.', 'fa-times-circle text-red-500');
+            }
+        }
+        
+        window.listPlayerForAuction = async (playerId) => {
+            const startPrice = document.getElementById('start-price').value;
+            if (!startPrice || startPrice <= 0) {
+                showMessageModal('Precio Inválido', 'Por favor, introduce un precio de salida válido.', 'fa-exclamation-circle text-yellow-500');
+                return;
+            }
+            
+            const player = allPlayers.find(p => p.id === playerId);
+            const seller = managers.find(m => m.id === currentManagerId);
+            const endTime = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+            try {
+                await addDoc(collection(db, auctionsPath), {
+                    playerId: player.id,
+                    playerName: player.name,
+                    sellerId: seller.id,
+                    sellerName: seller.name,
+                    startPrice: Number(startPrice),
+                    endTime: endTime
+                });
+                closeModal();
+                showMessageModal('¡Éxito!', `${player.name} ha sido puesto en subasta.`, 'fa-gavel text-blue-500');
+            } catch(e) {
+                console.error("Error al subastar: ", e);
+                showMessageModal('Error', 'Hubo un error al procesar tu petición.', 'fa-times-circle text-red-500');
+            }
+        }
+        
+        window.submitOffer = async (marketId) => {
+            const amount = document.getElementById('offer-amount').value;
+            if(!amount || amount <= 0) {
+                showMessageModal('Oferta Inválida', 'Introduce una cantidad válida para la oferta.', 'fa-exclamation-circle text-yellow-500');
+                return;
+            }
+            const buyer = managers.find(m => m.id === currentManagerId);
+            try {
+                await addDoc(collection(db, `${marketPath}/${marketId}/offers`), {
+                    buyerId: buyer.id,
+                    buyerName: buyer.name,
+                    amount: Number(amount)
+                });
+                closeModal();
+                showMessageModal('¡Éxito!', 'Oferta enviada con éxito.', 'fa-check-circle text-green-500');
+            } catch(e) {
+                console.error("Error al enviar oferta: ", e);
+                showMessageModal('Error', 'Hubo un error al enviar tu oferta.', 'fa-times-circle text-red-500');
+            }
+        }
+        
+        window.acceptOffer = async (marketId, offerId) => {
+            showConfirmationModal('Aceptar Oferta', '¿Seguro que quieres aceptar esta oferta? Esta acción es irreversible.', async () => {
+                try {
+                    const marketItemRef = doc(db, marketPath, marketId);
+                    const offerRef = doc(db, `${marketPath}/${marketId}/offers`, offerId);
+
+                    const marketItemSnap = await getDoc(marketItemRef);
+                    const offerSnap = await getDoc(offerRef);
+
+                    if (!marketItemSnap.exists() || !offerSnap.exists()) throw new Error("La venta o la oferta ya no existen.");
+
+                    const marketItem = marketItemSnap.data();
+                    const offer = offerSnap.data();
+                    
+                    const playerRef = doc(db, playersPath, marketItem.playerId);
+                    
+                    await updateDoc(playerRef, { ownerId: offer.buyerId, ownerName: offer.buyerName });
+
+                    const offersSnapshot = await getDocs(collection(db, `${marketPath}/${marketId}/offers`));
+                    const batch = writeBatch(db);
+                    offersSnapshot.forEach(doc => batch.delete(doc.ref));
+                    batch.delete(marketItemRef);
+                    await batch.commit();
+                    
+                    const contractData = { sellerName: marketItem.sellerName, buyerName: offer.buyerName, playerName: marketItem.playerName, amount: offer.amount };
+                    const contractText = generateContractText('Venta', contractData);
+                    const contractButton = `<button onclick="downloadContract(\`${encodeURIComponent(contractText)}\`, 'contrato_venta_${marketItem.playerName}.txt')" class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700"><i class="fas fa-download mr-2"></i>Descargar Contrato</button> <button onclick="closeModal()" class="mt-2 px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 w-full">Cerrar</button>`;
+                    showMessageModal('¡Traspaso Completado!', `${marketItem.playerName} es nuevo jugador de ${offer.buyerName}.`, 'fa-check-circle text-green-500', contractButton);
+
+                } catch (e) {
+                    console.error("Error al aceptar la oferta: ", e);
+                    showMessageModal('Error', 'Hubo un error al aceptar la oferta.', 'fa-times-circle text-red-500');
+                }
+            });
+        }
+        
+        window.cancelSale = async (marketId) => {
+            showConfirmationModal('Retirar del Mercado', '¿Seguro que quieres retirar a este jugador del mercado?', async () => {
+                try {
+                    await deleteDoc(doc(db, marketPath, marketId));
+                    showMessageModal('Operación Exitosa', 'Jugador retirado del mercado.', 'fa-info-circle text-blue-500');
+                } catch(e) {
+                    console.error("Error al retirar: ", e);
+                    showMessageModal('Error', 'Hubo un error al retirar al jugador.', 'fa-times-circle text-red-500');
+                }
+            });
+        }
+        
+        window.placeBid = async (auctionId) => {
+            const amountInput = document.getElementById(`bid-amount-${auctionId}`);
+            const amount = Number(amountInput.value);
+            
+            const auctionRef = doc(db, auctionsPath, auctionId);
+            const auctionSnap = await getDoc(auctionRef);
+            const auction = auctionSnap.data();
+
+            const bidsSnapshot = await getDocs(collection(db, `${auctionsPath}/${auctionId}/bids`));
+            const bids = bidsSnapshot.docs.map(doc => doc.data()).sort((a, b) => b.amount - a.amount);
+            const highestBidAmount = bids[0]?.amount || auction.startPrice;
+
+            if (!amount || amount <= highestBidAmount) {
+                showMessageModal('Puja Baja', `Tu puja debe ser mayor que ${formatCurrency(highestBidAmount)}.`, 'fa-exclamation-circle text-yellow-500');
+                return;
+            }
+
+            const bidder = managers.find(m => m.id === currentManagerId);
+
+            try {
+                await addDoc(collection(db, `${auctionsPath}/${auctionId}/bids`), {
+                    bidderId: bidder.id,
+                    bidderName: bidder.name,
+                    amount: amount,
+                    timestamp: new Date()
+                });
+                showMessageModal('¡Puja Realizada!', 'Tu puja se ha registrado con éxito.', 'fa-check-circle text-green-500');
+                amountInput.value = '';
+            } catch (e) {
+                console.error("Error al pujar: ", e);
+                showMessageModal('Error', 'Hubo un error al realizar tu puja.', 'fa-times-circle text-red-500');
+            }
+        }
+
+        window.finalizeAuction = async (auctionId) => {
+            showConfirmationModal('Finalizar Subasta', '¿Confirmas el traspaso al ganador de la subasta?', async () => {
+                try {
+                    const auctionRef = doc(db, auctionsPath, auctionId);
+                    const auctionSnap = await getDoc(auctionRef);
+                    const auction = auctionSnap.data();
+
+                    const bidsSnapshot = await getDocs(collection(db, `${auctionsPath}/${auctionId}/bids`));
+                    const bids = bidsSnapshot.docs.map(doc => doc.data()).sort((a, b) => b.amount - a.amount);
+                    const winningBid = bids[0];
+
+                    if (!winningBid) {
+                        showMessageModal('Sin Ganador', 'No hay ganador, la subasta se puede cerrar.', 'fa-info-circle text-blue-500');
+                        return;
+                    }
+
+                    const playerRef = doc(db, playersPath, auction.playerId);
+                    await updateDoc(playerRef, { ownerId: winningBid.bidderId, ownerName: winningBid.bidderName });
+
+                    await deleteDoc(auctionRef);
+                    
+                    const contractData = { sellerName: auction.sellerName, winnerName: winningBid.bidderName, playerName: auction.playerName, amount: winningBid.amount };
+                    const contractText = generateContractText('Subasta', contractData);
+                    const contractButton = `<button onclick="downloadContract(\`${encodeURIComponent(contractText)}\`, 'contrato_subasta_${auction.playerName}.txt')" class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700"><i class="fas fa-download mr-2"></i>Descargar Contrato</button> <button onclick="closeModal()" class="mt-2 px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 w-full">Cerrar</button>`;
+                    showMessageModal('¡Subasta Finalizada!', `${auction.playerName} es nuevo jugador de ${winningBid.bidderName}.`, 'fa-gavel text-blue-500', contractButton);
+
+                } catch (e) {
+                    console.error("Error al finalizar subasta: ", e);
+                    showMessageModal('Error', 'Hubo un error al finalizar la subasta.', 'fa-times-circle text-red-500');
+                }
+            });
+        }
+        
+        window.cancelAuction = async (auctionId) => {
+            showConfirmationModal('Cerrar Subasta', '¿Seguro que quieres cerrar esta subasta sin ganador?', async () => {
+                 await deleteDoc(doc(db, auctionsPath, auctionId));
+                 showMessageModal('Subasta Cerrada', 'La subasta ha sido cerrada.', 'fa-info-circle text-blue-500');
+            });
+        }
+
+        window.submitTrade = async () => {
+            const proposer = managers.find(m => m.id === currentManagerId);
+            const receiverId = document.getElementById('trade-target-manager').value;
+            const receiver = managers.find(m => m.id === receiverId);
+
+            const proposerPlayers = Array.from(document.querySelectorAll('#my-players-list input:checked')).map(el => el.value);
+            const receiverPlayers = Array.from(document.querySelectorAll('#their-players-list input:checked')).map(el => el.value);
+            
+            const cashFromProposer = Number(document.getElementById('my-cash-offer').value) || 0;
+            const cashFromReceiver = Number(document.getElementById('their-cash-offer').value) || 0;
+
+            if (proposerPlayers.length === 0 && receiverPlayers.length === 0 && cashFromProposer === 0 && cashFromReceiver === 0) {
+                showMessageModal('Propuesta Vacía', 'Debes seleccionar al menos un jugador o añadir dinero a la oferta.', 'fa-exclamation-circle text-yellow-500');
+                return;
+            }
+
+            try {
+                await addDoc(collection(db, tradesPath), {
+                    proposerId: proposer.id,
+                    proposerName: proposer.name,
+                    receiverId: receiver.id,
+                    receiverName: receiver.name,
+                    proposerPlayers,
+                    receiverPlayers,
+                    cashFromProposer,
+                    cashFromReceiver,
+                    status: 'pending',
+                    timestamp: new Date()
+                });
+                closeModal();
+                showMessageModal('¡Propuesta Enviada!', 'Tu propuesta de intercambio ha sido enviada.', 'fa-check-circle text-green-500');
+            } catch (e) {
+                console.error("Error al proponer intercambio:", e);
+                showMessageModal('Error', 'No se pudo enviar la propuesta.', 'fa-times-circle text-red-500');
+            }
+        }
+
+        window.acceptTrade = async (tradeId) => {
+            showConfirmationModal('Aceptar Intercambio', '¿Aceptar este intercambio? Los jugadores cambiarán de equipo permanentemente.', async () => {
+                const tradeRef = doc(db, tradesPath, tradeId);
+                const tradeSnap = await getDoc(tradeRef);
+                if (!tradeSnap.exists()) {
+                    showMessageModal('Error', 'Esta propuesta ya no existe.');
+                    return;
+                }
+                const trade = tradeSnap.data();
+                
+                const batch = writeBatch(db);
+
+                trade.proposerPlayers.forEach(playerId => {
+                    const playerRef = doc(db, playersPath, playerId);
+                    batch.update(playerRef, { ownerId: trade.receiverId, ownerName: trade.receiverName });
+                });
+
+                trade.receiverPlayers.forEach(playerId => {
+                    const playerRef = doc(db, playersPath, playerId);
+                    batch.update(playerRef, { ownerId: trade.proposerId, ownerName: trade.proposerName });
+                });
+
+                batch.delete(tradeRef);
+
+                try {
+                    await batch.commit();
+
+                    const getPlayerDetails = (id) => allPlayers.find(p => p.id === id);
+                    const contractData = {
+                        proposerName: trade.proposerName,
+                        receiverName: trade.receiverName,
+                        proposerPlayers: trade.proposerPlayers.map(getPlayerDetails),
+                        receiverPlayers: trade.receiverPlayers.map(getPlayerDetails),
+                        cashFromProposer: trade.cashFromProposer,
+                        cashFromReceiver: trade.cashFromReceiver
+                    };
+                    const contractText = generateContractText('Intercambio', contractData);
+                    const contractButton = `<button onclick="downloadContract(\`${encodeURIComponent(contractText)}\`, 'contrato_intercambio.txt')" class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700"><i class="fas fa-download mr-2"></i>Descargar Contrato</button> <button onclick="closeModal()" class="mt-2 px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 w-full">Cerrar</button>`;
+                    showMessageModal('¡Intercambio Completado!', 'Los jugadores han sido traspasados.', 'fa-check-circle text-green-500', contractButton);
+
+                } catch (e) {
+                    console.error("Error al aceptar intercambio:", e);
+                    showMessageModal('Error', 'No se pudo completar el intercambio.', 'fa-times-circle text-red-500');
+                }
+            });
+        }
+        
+        window.rejectTrade = async (tradeId) => {
+            showConfirmationModal('Rechazar Intercambio', '¿Seguro que quieres rechazar esta propuesta?', async () => {
+                await deleteDoc(doc(db, tradesPath, tradeId));
+                showMessageModal('Propuesta Rechazada', 'El intercambio ha sido rechazado y eliminado.', 'fa-info-circle text-blue-500');
+            });
+        }
+
+        window.cancelTrade = async (tradeId) => {
+            showConfirmationModal('Cancelar Propuesta', '¿Seguro que quieres cancelar esta propuesta de intercambio?', async () => {
+                await deleteDoc(doc(db, tradesPath, tradeId));
+                showMessageModal('Propuesta Cancelada', 'Tu propuesta ha sido retirada.', 'fa-info-circle text-blue-500');
+            });
+        }
+
+
+        // --- UTILS ---
+        
+        function formatCurrency(value) {
+            return new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', minimumFractionDigits: 0 }).format(value);
+        }
+
+        function formatTimeLeft(ms) {
+            if (ms <= 0) return "Finalizado";
+            const totalSeconds = Math.floor(ms / 1000);
+            const hours = Math.floor(totalSeconds / 3600);
+            const minutes = Math.floor((totalSeconds % 3600) / 60);
+            return `${hours}h ${minutes}m restantes`;
+        }
+        
+        // --- START ---
+        initializeAppLogic();
+
+    </script>
+</body>
+</html>
