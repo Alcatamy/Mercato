@@ -531,11 +531,12 @@ window.searchRealPlayers = () => {
             // Obtener jugadores de FutbolFantasy.com desde Firebase
             const playersRef = firestoreFunctions.collection(window.firebaseDb, 'players');
             
-            // Consulta base - obtener todos los jugadores de FutbolFantasy
+            // Consulta base - obtener jugadores ordenados por valor (más caros primero)
             const q = firestoreFunctions.query(
                 playersRef,
                 firestoreFunctions.where('source', '==', 'FutbolFantasy.com'),
-                firestoreFunctions.limit(500) // Aumentar límite para obtener más jugadores
+                firestoreFunctions.orderBy('value', 'desc'),
+                firestoreFunctions.limit(1000) // Aumentar límite para obtener más variedad
             );
             
             const playersSnapshot = await firestoreFunctions.getDocs(q);
