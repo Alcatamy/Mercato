@@ -60,7 +60,8 @@ async function loadFirestoreFunctions() {
             doc, 
             getDoc, 
             setDoc,
-            limit 
+            limit,
+            orderBy
         } = await import("https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js");
         
         const { signInAnonymously } = await import("https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js");
@@ -68,7 +69,7 @@ async function loadFirestoreFunctions() {
         firestoreFunctions = {
             collection, onSnapshot, addDoc, updateDoc, deleteDoc, 
             writeBatch, query, where, getDocs, doc, getDoc, setDoc,
-            limit, signInAnonymously
+            limit, orderBy, signInAnonymously
         };
         
         firebaseLoaded = true;
@@ -111,6 +112,10 @@ async function initializeApp() {
         // Configurar event listeners
         setupEventListeners();
         
+        // Mostrar contenido principal (sin login requerido)
+        document.getElementById('main-content').classList.remove('hidden');
+        renderAllTabs();
+        
         console.log('🎉 Aplicación inicializada correctamente');
         
     } catch (error) {
@@ -152,72 +157,47 @@ function listenToAllChanges() {
     // Managers
     firestoreFunctions.onSnapshot(firestoreFunctions.collection(window.firebaseDb, COLLECTIONS.managers), snapshot => {
         managers = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        populateManagerSelect();
-        if (currentManagerId) renderAllTabs();
+        renderAllTabs(); // Renderizar siempre, no solo si hay manager logueado
     });
 
     // Players
     firestoreFunctions.onSnapshot(firestoreFunctions.collection(window.firebaseDb, COLLECTIONS.players), snapshot => {
         allPlayers = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        if (currentManagerId) renderAllTabs();
+        renderAllTabs();
     });
 
     // Market
     firestoreFunctions.onSnapshot(firestoreFunctions.collection(window.firebaseDb, COLLECTIONS.market), snapshot => {
         marketItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        if (currentManagerId) {
-            renderMarketTab();
-            renderSquadTab();
-        }
+        renderMarketTab();
+        if (currentManagerId) renderSquadTab(); // Solo renderizar squad si hay manager logueado
     });
 
     // Auctions
     firestoreFunctions.onSnapshot(firestoreFunctions.collection(window.firebaseDb, COLLECTIONS.auctions), snapshot => {
         auctionItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        if (currentManagerId) {
-            renderAuctionsTab();
-            renderSquadTab();
-        }
+        renderAuctionsTab();
+        if (currentManagerId) renderSquadTab();
     });
 
     // Trades
     firestoreFunctions.onSnapshot(firestoreFunctions.collection(window.firebaseDb, COLLECTIONS.trades), snapshot => {
         tradeItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        if (currentManagerId) {
-            renderTradesTab();
-            renderSquadTab();
-        }
+        renderTradesTab();
+        if (currentManagerId) renderSquadTab();
     });
 }
 
 // Configurar event listeners
 function setupEventListeners() {
-    document.getElementById('manager-select').addEventListener('change', (e) => {
-        const selectedManagerId = e.target.value;
-        if (selectedManagerId) {
-            openKeyPromptModal(selectedManagerId);
-        } else {
-            currentManagerId = null;
-            document.getElementById('main-content').classList.add('hidden');
-        }
-    });
-}
-
-// Poblar selector de managers
-function populateManagerSelect() {
-    const select = document.getElementById('manager-select');
-    const currentSelection = select.value;
+    // Ya no necesitamos event listener para manager-select
+    // Los tabs se manejan directamente con onclick
     
-    select.innerHTML = '<option value="">-- Elige tu manager --</option>';
-    
-    managers.sort((a, b) => a.name.localeCompare(b.name)).forEach(manager => {
-        const option = document.createElement('option');
-        option.value = manager.id;
-        option.textContent = manager.name;
-        select.appendChild(option);
-    });
-    
-    select.value = currentSelection;
+    // Configurar botón de login
+    const loginBtn = document.getElementById('login-btn');
+    if (loginBtn) {
+        loginBtn.addEventListener('click', openLoginModal);
+    }
 }
 
 // Funciones de navegación por tabs
@@ -232,13 +212,16 @@ window.showTab = (tabName) => {
 };
 
 function renderAllTabs() {
-    if (!currentManagerId) return;
-    
-    renderSquadTab();
+    // Renderizar tabs que no requieren autenticación
     renderStandingsTab();
     renderMarketTab();
     renderAuctionsTab();
     renderTradesTab();
+    
+    // Solo renderizar squad si hay manager logueado
+    if (currentManagerId) {
+        renderSquadTab();
+    }
 }
 
 // Obtener estado de un jugador
@@ -261,6 +244,21 @@ function getPlayerStatus(playerId) {
 // Renderizar tab de plantilla
 function renderSquadTab() {
     const container = document.getElementById('tab-content-squad');
+    
+    if (!currentManagerId) {
+        container.innerHTML = `
+            <div class="bg-white rounded-xl shadow-md p-8 text-center">
+                <i class="fas fa-lock fa-3x text-gray-400 mb-4"></i>
+                <h3 class="text-xl font-semibold text-gray-700 mb-2">Inicio de Sesión Requerido</h3>
+                <p class="text-gray-600 mb-4">Para ver y gestionar tu plantilla, necesitas iniciar sesión como manager.</p>
+                <button onclick="openLoginModal()" class="bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition">
+                    <i class="fas fa-user mr-2"></i>Iniciar Sesión
+                </button>
+            </div>
+        `;
+        return;
+    }
+    
     const myPlayers = allPlayers.filter(p => p.ownerId === currentManagerId);
     
     container.innerHTML = `
@@ -399,8 +397,8 @@ window.openEditSquadModal = async () => {
                 <div id="players-results" class="max-h-64 overflow-y-auto border rounded-lg bg-white mt-4">
                     <div class="p-4 text-center text-gray-500">
                         <i class="fas fa-search fa-2x mb-2"></i>
-                        <p>Busca jugadores por nombre o filtra por equipo/valor</p>
-                        <p class="text-sm mt-1">Se mostrarán los primeros 50 resultados</p>
+                        <p>Cargando jugadores de FutbolFantasy.com...</p>
+                        <p class="text-sm mt-1">Se mostrarán hasta 100 resultados</p>
                     </div>
                 </div>
             </div>
@@ -530,26 +528,32 @@ window.searchRealPlayers = () => {
             // Obtener jugadores de FutbolFantasy.com desde Firebase
             const playersRef = firestoreFunctions.collection(window.firebaseDb, 'players');
             
-            let q;
-            if (searchQuery && searchQuery.length >= 3) {
-                // Búsqueda optimizada por nombre cuando hay query específico
-                q = firestoreFunctions.query(
+            // Intentar consulta optimizada con índice compuesto
+            let playersSnapshot;
+            try {
+                // Consulta que requiere índice compuesto (source + value)
+                const q = firestoreFunctions.query(
                     playersRef,
                     firestoreFunctions.where('source', '==', 'FutbolFantasy.com'),
-                    firestoreFunctions.where('name_lowercase', '>=', searchQuery),
-                    firestoreFunctions.where('name_lowercase', '<=', searchQuery + '\uf8ff'),
-                    firestoreFunctions.limit(50)
+                    firestoreFunctions.orderBy('value', 'desc'),
+                    firestoreFunctions.limit(1000)
                 );
-            } else {
-                // Consulta general
-                q = firestoreFunctions.query(
+                
+                playersSnapshot = await firestoreFunctions.getDocs(q);
+            } catch (indexError) {
+                console.warn('Índice compuesto no disponible, usando consulta alternativa:', indexError.message);
+                console.info('📋 Para mejor rendimiento, crea el índice compuesto en Firebase Console');
+                console.info('📖 Ver FIREBASE_INDEX_SETUP.md para instrucciones detalladas');
+                
+                // Consulta alternativa sin orderBy (requiere ordenación en cliente)
+                const q2 = firestoreFunctions.query(
                     playersRef,
                     firestoreFunctions.where('source', '==', 'FutbolFantasy.com'),
-                    firestoreFunctions.limit(100)
+                    firestoreFunctions.limit(1000)
                 );
+                
+                playersSnapshot = await firestoreFunctions.getDocs(q2);
             }
-            
-            const playersSnapshot = await firestoreFunctions.getDocs(q);
             
             playersSnapshot.forEach(doc => {
                 const player = doc.data();
@@ -557,12 +561,19 @@ window.searchRealPlayers = () => {
                 players.push(player);
             });
             
-            // Aplicar filtros
+            // Si usamos la consulta alternativa, ordenar en el cliente
+            // (Esto es menos eficiente pero funciona sin índice compuesto)
+            players.sort((a, b) => {
+                const valueA = parseFloat(a.value) || 0;
+                const valueB = parseFloat(b.value) || 0;
+                return valueB - valueA; // Descendente (más caro primero)
+            });
+            
+            // Aplicar filtros del lado del cliente
             let filteredPlayers = players;
             
-            // Filtro por nombre - mejorado para búsqueda eficiente
-            if (searchQuery) {
-                // Si el campo name_lowercase existe, usarlo para búsqueda más eficiente
+            // Filtro por nombre/equipo - solo aplicar si hay texto de búsqueda
+            if (searchQuery && searchQuery.length >= 1) {
                 filteredPlayers = filteredPlayers.filter(player => {
                     const nameSearch = (player.name_lowercase || player.name.toLowerCase()).includes(searchQuery);
                     const teamSearch = (player.team_lowercase || player.team.toLowerCase()).includes(searchQuery);
@@ -587,8 +598,8 @@ window.searchRealPlayers = () => {
             // Ordenar por valor (de mayor a menor)
             filteredPlayers.sort((a, b) => (b.value || 0) - (a.value || 0));
             
-            // Limitar a 50 resultados
-            filteredPlayers = filteredPlayers.slice(0, 50);
+            // Limitar a 100 resultados para mejorar rendimiento
+            filteredPlayers = filteredPlayers.slice(0, 100);
             
             renderRealPlayersResults(filteredPlayers);
             
@@ -654,14 +665,37 @@ function renderRealPlayersResults(players) {
 window.addRealPlayerToSquad = async (playerId, name, team, value) => {
     try {
         // Verificar si el jugador ya está en la plantilla del manager actual
-        const squadSnapshot = await firestoreFunctions.getDocs(
-            firestoreFunctions.query(
-                firestoreFunctions.collection(window.firebaseDb, COLLECTIONS.players),
-                firestoreFunctions.where('managerId', '==', currentManagerId),
-                firestoreFunctions.where('name', '==', name),
-                firestoreFunctions.where('team', '==', team)
-            )
-        );
+        let squadSnapshot;
+        try {
+            squadSnapshot = await firestoreFunctions.getDocs(
+                firestoreFunctions.query(
+                    firestoreFunctions.collection(window.firebaseDb, COLLECTIONS.players),
+                    firestoreFunctions.where('managerId', '==', currentManagerId),
+                    firestoreFunctions.where('name', '==', name),
+                    firestoreFunctions.where('team', '==', team)
+                )
+            );
+        } catch (indexError) {
+            console.warn('Verificación de duplicados usando consulta alternativa:', indexError.message);
+            // Consulta alternativa - solo por managerId y verificar en cliente
+            squadSnapshot = await firestoreFunctions.getDocs(
+                firestoreFunctions.query(
+                    firestoreFunctions.collection(window.firebaseDb, COLLECTIONS.players),
+                    firestoreFunctions.where('managerId', '==', currentManagerId)
+                )
+            );
+            
+            // Filtrar en el cliente
+            const duplicatePlayer = squadSnapshot.docs.find(doc => {
+                const player = doc.data();
+                return player.name === name && player.team === team;
+            });
+            
+            if (duplicatePlayer) {
+                showMessageModal('¡Jugador ya en plantilla!', `${name} ya está en tu plantilla.`, 'fa-exclamation-triangle text-yellow-500');
+                return;
+            }
+        }
         
         if (!squadSnapshot.empty) {
             showMessageModal('¡Jugador ya en plantilla!', `${name} ya está en tu plantilla.`, 'fa-exclamation-triangle text-yellow-500');
@@ -1103,7 +1137,122 @@ function showMessageModal(title, message, iconClass = 'fa-info-circle text-blue-
     openModal(content);
 }
 
-// Modal de verificación de clave
+// Modal de login principal
+window.openLoginModal = () => {
+    const content = `
+        <div class="p-6">
+            <h3 class="text-xl font-semibold mb-4 text-center">
+                <i class="fas fa-user-shield mr-2 text-blue-600"></i>
+                Iniciar Sesión
+            </h3>
+            
+            <div class="space-y-4">
+                <div>
+                    <label for="login-manager-select" class="block text-sm font-medium text-gray-700 mb-2">
+                        Selecciona tu equipo:
+                    </label>
+                    <select id="login-manager-select" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition">
+                        <option value="">-- Elige tu manager --</option>
+                        ${managers.map(manager => 
+                            `<option value="${manager.id}">${manager.name}</option>`
+                        ).join('')}
+                    </select>
+                </div>
+                
+                <div>
+                    <label for="login-key-input" class="block text-sm font-medium text-gray-700 mb-2">
+                        Clave de acceso:
+                    </label>
+                    <input type="password" id="login-key-input" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" placeholder="Introduce tu clave secreta">
+                </div>
+            </div>
+            
+            <div class="mt-6 flex justify-end space-x-3">
+                <button onclick="closeModal()" class="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition">
+                    Cancelar
+                </button>
+                <button onclick="attemptLogin()" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
+                    <i class="fas fa-sign-in-alt mr-2"></i>Entrar
+                </button>
+            </div>
+        </div>
+    `;
+    openModal(content);
+    
+    // Auto-focus en el selector de manager
+    setTimeout(() => {
+        document.getElementById('login-manager-select').focus();
+    }, 100);
+};
+
+// Intentar hacer login
+window.attemptLogin = () => {
+    const managerId = document.getElementById('login-manager-select').value;
+    const inputKey = document.getElementById('login-key-input').value;
+    
+    if (!managerId) {
+        showMessageModal('Error', 'Por favor selecciona un equipo.', 'fa-exclamation-triangle text-yellow-500');
+        return;
+    }
+    
+    if (!inputKey) {
+        showMessageModal('Error', 'Por favor introduce la clave de acceso.', 'fa-exclamation-triangle text-yellow-500');
+        return;
+    }
+    
+    const correctKey = managerKeys[managerId];
+    
+    if (inputKey === correctKey) {
+        const manager = managers.find(m => m.id === managerId);
+        currentManagerId = managerId;
+        
+        // Actualizar UI
+        updateLoginUI(manager.name);
+        
+        // Cerrar modal y renderizar contenido personal
+        closeModal();
+        renderAllTabs();
+        
+        showMessageModal(
+            '¡Bienvenido!', 
+            `Sesión iniciada como ${manager.name}. Ahora puedes gestionar tu plantilla y hacer ofertas.`, 
+            'fa-check-circle text-green-500'
+        );
+    } else {
+        showMessageModal(
+            'Clave Incorrecta', 
+            'La clave introducida no es correcta. Verifica tu clave e inténtalo de nuevo.', 
+            'fa-times-circle text-red-500'
+        );
+    }
+};
+
+// Actualizar UI cuando se inicia sesión
+function updateLoginUI(managerName) {
+    document.getElementById('login-btn').classList.add('hidden');
+    document.getElementById('user-info').classList.remove('hidden');
+    document.getElementById('user-name').textContent = managerName;
+}
+
+// Cerrar sesión
+window.logout = () => {
+    currentManagerId = null;
+    
+    // Actualizar UI
+    document.getElementById('login-btn').classList.remove('hidden');
+    document.getElementById('user-info').classList.add('hidden');
+    
+    // Re-renderizar tabs
+    renderAllTabs();
+    
+    showMessageModal(
+        'Sesión Cerrada', 
+        'Has cerrado sesión correctamente. Puedes seguir viendo el mercado y subastas.', 
+        'fa-info-circle text-blue-500'
+    );
+};
+
+// Modal de verificación de clave (legacy - para compatibilidad)
 window.openKeyPromptModal = (managerId) => {
     const manager = managers.find(m => m.id === managerId);
     const content = `
@@ -1122,7 +1271,6 @@ window.openKeyPromptModal = (managerId) => {
 };
 
 window.cancelLogin = () => {
-    document.getElementById('manager-select').value = '';
     closeModal();
 };
 
@@ -1131,17 +1279,28 @@ window.verifyManagerKey = (managerId) => {
     const inputKey = document.getElementById('manager-key-input').value;
     
     if (inputKey === correctKey) {
+        const manager = managers.find(m => m.id === managerId);
         currentManagerId = managerId;
-        document.getElementById('main-content').classList.remove('hidden');
+        
+        // Actualizar UI
+        updateLoginUI(manager.name);
+        
+        // Cerrar modal y renderizar contenido
         closeModal();
+        renderAllTabs();
         showTab('squad');
+        
+        showMessageModal(
+            '¡Bienvenido!', 
+            `Sesión iniciada como ${manager.name}. Ahora puedes gestionar tu plantilla y hacer ofertas.`, 
+            'fa-check-circle text-green-500'
+        );
     } else {
         showMessageModal(
             'Clave Incorrecta', 
             'La clave introducida no es correcta. Inténtalo de nuevo.', 
             'fa-times-circle text-red-500'
         );
-        document.getElementById('manager-select').value = '';
     }
 };
 
