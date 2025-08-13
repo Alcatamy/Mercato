@@ -97,7 +97,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getFirestore, setDoc, getDoc, doc, collection, onSnapshot, addDoc, updateDoc, deleteDoc, writeBatch, query, where, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 
         // =================================================================================
         // CLAVES SECRETAS DE MANAGERS - DISTRIBUIR ESTAS CLAVES A CADA MANAGER
@@ -112,8 +112,16 @@
         };
         // =================================================================================
 
-        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        // Tu configuración personal de Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyCyM423fae8Lmft0M2xxhZD2DvC_fbZLCY",
+            authDomain: "mercato-fbdcc.firebaseapp.com",
+            projectId: "mercato-fbdcc",
+            storageBucket: "mercato-fbdcc.appspot.com",
+            messagingSenderId: "865841758007",
+            appId: "1:865841758007:web:31786b65366b99584864b2",
+            measurementId: "G-5GJRTD7E72"
+        };
 
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
@@ -126,12 +134,11 @@
         let auctionItems = [];
         let tradeItems = [];
 
-        const basePath = `artifacts/${appId}/public/data`;
-        const managersPath = `${basePath}/managers`;
-        const playersPath = `${basePath}/players`;
-        const marketPath = `${basePath}/market`;
-        const auctionsPath = `${basePath}/auctions`;
-        const tradesPath = `${basePath}/trades`;
+        const managersPath = `managers`;
+        const playersPath = `players`;
+        const marketPath = `market`;
+        const auctionsPath = `auctions`;
+        const tradesPath = `trades`;
 
         const managerNames = ["Alcatamy eSports by Rolex", "Vigar FC", "Baena10", "Dubai cITY FC", "Visite La Manga FC", "Morenazos FC"];
         const positions = ["POR", "DEF", "MED", "DEL"];
@@ -139,12 +146,7 @@
         async function initializeAppLogic() {
             document.getElementById('loading-spinner').classList.remove('hidden');
             try {
-                const token = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-                if (token) {
-                    await signInWithCustomToken(auth, token);
-                } else {
-                    await signInAnonymously(auth);
-                }
+                await signInAnonymously(auth);
                 await setupInitialData();
                 listenToAllChanges();
             } catch (error) {
