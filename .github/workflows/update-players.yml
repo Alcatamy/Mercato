@@ -1,4 +1,4 @@
-name: Update Player Data
+name: 🔄 Actualizar Datos de Jugadores
 
 on:
   schedule:
@@ -11,27 +11,36 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-    - uses: actions/checkout@v3
+    - name: 📥 Checkout código
+      uses: actions/checkout@v4
     
-    - name: Set up Python
+    - name: 🐍 Configurar Python
       uses: actions/setup-python@v4
       with:
         python-version: '3.11'
     
-    - name: Install dependencies
+    - name: 📦 Instalar dependencias
       run: |
         python -m pip install --upgrade pip
+        cd backend
         pip install -r requirements.txt
         playwright install chromium
     
-    - name: Configure Firebase credentials
+    - name: 🔑 Configurar credenciales Firebase
       run: |
         echo '${{ secrets.FIREBASE_CREDENTIALS }}' > backend/firebase_credentials.json
     
-    - name: Run player data updater
+    - name: ⚽ Ejecutar actualizador de jugadores
       run: |
-        python update_laliga_fantasy_final.py
+        cd backend
+        python player_updater.py
     
-    - name: Cleanup
+    - name: 🧹 Limpiar credenciales
       run: |
         rm backend/firebase_credentials.json
+        
+    - name: 📊 Mostrar estadísticas
+      run: |
+        echo "✅ Actualización de jugadores completada"
+        echo "📅 Fecha: $(date)"
+        echo "🤖 Ejecutado por GitHub Actions"
