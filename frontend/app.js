@@ -59,7 +59,8 @@ async function loadFirestoreFunctions() {
             getDocs, 
             doc, 
             getDoc, 
-            setDoc 
+            setDoc,
+            limit 
         } = await import("https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js");
         
         const { signInAnonymously } = await import("https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js");
@@ -67,7 +68,7 @@ async function loadFirestoreFunctions() {
         firestoreFunctions = {
             collection, onSnapshot, addDoc, updateDoc, deleteDoc, 
             writeBatch, query, where, getDocs, doc, getDoc, setDoc,
-            signInAnonymously
+            limit, signInAnonymously
         };
         
         firebaseLoaded = true;
