@@ -59,7 +59,8 @@ async function loadFirestoreFunctions() {
             getDocs, 
             doc, 
             getDoc, 
-            setDoc 
+            setDoc,
+            limit 
         } = await import("https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js");
         
         const { signInAnonymously } = await import("https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js");
@@ -67,7 +68,7 @@ async function loadFirestoreFunctions() {
         firestoreFunctions = {
             collection, onSnapshot, addDoc, updateDoc, deleteDoc, 
             writeBatch, query, where, getDocs, doc, getDoc, setDoc,
-            signInAnonymously
+            limit, signInAnonymously
         };
         
         firebaseLoaded = true;
@@ -527,13 +528,28 @@ window.searchRealPlayers = () => {
             let players = [];
             
             // Obtener jugadores de FutbolFantasy.com desde Firebase
-            const playersSnapshot = await firestoreFunctions.getDocs(
-                firestoreFunctions.query(
-                    firestoreFunctions.collection(window.firebaseDb, 'players'),
+            const playersRef = firestoreFunctions.collection(window.firebaseDb, 'players');
+            
+            let q;
+            if (searchQuery && searchQuery.length >= 3) {
+                // Búsqueda optimizada por nombre cuando hay query específico
+                q = firestoreFunctions.query(
+                    playersRef,
                     firestoreFunctions.where('source', '==', 'FutbolFantasy.com'),
-                    firestoreFunctions.limit(100) // Límite de 100 jugadores
-                )
-            );
+                    firestoreFunctions.where('name_lowercase', '>=', searchQuery),
+                    firestoreFunctions.where('name_lowercase', '<=', searchQuery + '\uf8ff'),
+                    firestoreFunctions.limit(50)
+                );
+            } else {
+                // Consulta general
+                q = firestoreFunctions.query(
+                    playersRef,
+                    firestoreFunctions.where('source', '==', 'FutbolFantasy.com'),
+                    firestoreFunctions.limit(100)
+                );
+            }
+            
+            const playersSnapshot = await firestoreFunctions.getDocs(q);
             
             playersSnapshot.forEach(doc => {
                 const player = doc.data();
@@ -544,12 +560,14 @@ window.searchRealPlayers = () => {
             // Aplicar filtros
             let filteredPlayers = players;
             
-            // Filtro por nombre
+            // Filtro por nombre - mejorado para búsqueda eficiente
             if (searchQuery) {
-                filteredPlayers = filteredPlayers.filter(player => 
-                    player.name.toLowerCase().includes(searchQuery) ||
-                    player.team.toLowerCase().includes(searchQuery)
-                );
+                // Si el campo name_lowercase existe, usarlo para búsqueda más eficiente
+                filteredPlayers = filteredPlayers.filter(player => {
+                    const nameSearch = (player.name_lowercase || player.name.toLowerCase()).includes(searchQuery);
+                    const teamSearch = (player.team_lowercase || player.team.toLowerCase()).includes(searchQuery);
+                    return nameSearch || teamSearch;
+                });
             }
             
             // Filtro por equipo
