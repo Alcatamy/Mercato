@@ -1,0 +1,20 @@
+# Dependencias del backend de Python
+
+# Firebase Admin SDK
+firebase-admin==6.4.0
+
+# Requests para llamadas HTTP
+requests==2.31.0
+
+# Utilidades de fecha y tiempo
+python-dateutil==2.8.2
+
+# Testing
+pytest==7.4.3
+pytest-mock==3.12.0
+
+# Desarrollo
+python-dotenv==1.0.0
+
+# Logging mejorado
+colorlog==6.7.0

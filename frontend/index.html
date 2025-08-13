@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mercado - La Liga El Rancho 2025/2026</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f2f5;
+        }
+        .tab-active {
+            border-bottom-color: #3b82f6;
+            color: #3b82f6;
+            font-weight: 600;
+        }
+        .modal-backdrop {
+            background-color: rgba(0, 0, 0, 0.5);
+        }
+        .animate-pulse-once {
+            animation: pulse 1s cubic-bezier(0.4, 0, 0.6, 1);
+        }
+        @keyframes pulse {
+            50% {
+                opacity: .5;
+            }
+        }
+        .trade-player-label {
+            transition: all 0.2s ease-in-out;
+        }
+        .trade-player-input:checked + .trade-player-label {
+            background-color: #dbeafe; /* blue-100 */
+            border-color: #3b82f6; /* blue-500 */
+            transform: scale(1.02);
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+
+    <div id="app" class="container mx-auto p-4 max-w-5xl">
+
+        <!-- Header -->
+        <header class="bg-gradient-to-r from-blue-600 to-purple-700 rounded-xl shadow-lg p-6 mb-6 text-center text-white">
+            <div class="flex items-center justify-center mb-4">
+                <i class="fas fa-trophy text-4xl text-yellow-400 mr-4"></i>
+                <div>
+                    <h1 class="text-4xl font-bold">La Liga El Rancho</h1>
+                    <p class="text-xl font-semibold opacity-90">Temporada 2025/2026</p>
+                </div>
+                <i class="fas fa-soccer-ball text-4xl text-green-400 ml-4"></i>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                <div class="bg-white bg-opacity-20 rounded-lg p-3">
+                    <i class="fas fa-users text-lg mb-2"></i>
+                    <p class="font-semibold">6 Managers</p>
+                    <p class="opacity-75">Compitiendo</p>
+                </div>
+                <div class="bg-white bg-opacity-20 rounded-lg p-3">
+                    <i class="fas fa-calendar text-lg mb-2"></i>
+                    <p class="font-semibold">38 Jornadas</p>
+                    <p class="opacity-75">LaLiga Oficial</p>
+                </div>
+                <div class="bg-white bg-opacity-20 rounded-lg p-3">
+                    <i class="fas fa-star text-lg mb-2"></i>
+                    <p class="font-semibold">520+ Jugadores</p>
+                    <p class="opacity-75">Datos Reales</p>
+                </div>
+            </div>
+        </header>
+
+        <!-- Manager Selection -->
+        <div id="manager-selection" class="bg-white rounded-xl shadow-md p-6 mb-6">
+            <label for="manager-select" class="block text-lg font-medium text-gray-700 mb-2">Selecciona tu equipo:</label>
+            <select id="manager-select" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition">
+                <option value="">-- Elige tu manager --</option>
+            </select>
+        </div>
+
+        <!-- Main Content (Hidden until manager is selected) -->
+        <main id="main-content" class="hidden">
+            <!-- Tabs -->
+            <div class="mb-6">
+                <div class="border-b border-gray-200">
+                    <nav class="-mb-px flex space-x-2 md:space-x-4" aria-label="Tabs">
+                        <button onclick="showTab('squad')" class="tab py-4 px-3 border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 text-sm md:text-base font-medium transition" id="tab-squad">
+                            <i class="fas fa-users mr-2"></i>Mi Plantilla
+                        </button>
+                        <button onclick="showTab('standings')" class="tab py-4 px-3 border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 text-sm md:text-base font-medium transition" id="tab-standings">
+                            <i class="fas fa-trophy mr-2"></i>Clasificación
+                        </button>
+                        <button onclick="showTab('market')" class="tab py-4 px-3 border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 text-sm md:text-base font-medium transition" id="tab-market">
+                            <i class="fas fa-store mr-2"></i>Mercado
+                        </button>
+                        <button onclick="showTab('auctions')" class="tab py-4 px-3 border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 text-sm md:text-base font-medium transition" id="tab-auctions">
+                            <i class="fas fa-gavel mr-2"></i>Subastas
+                        </button>
+                        <button onclick="showTab('trades')" class="tab py-4 px-3 border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 text-sm md:text-base font-medium transition" id="tab-trades">
+                            <i class="fas fa-exchange-alt mr-2"></i>Intercambios
+                        </button>
+                    </nav>
+                </div>
+            </div>
+
+            <!-- Tab Content -->
+            <div id="tab-content-squad" class="tab-content"></div>
+            <div id="tab-content-standings" class="tab-content hidden"></div>
+            <div id="tab-content-market" class="tab-content hidden"></div>
+            <div id="tab-content-auctions" class="tab-content hidden"></div>
+            <div id="tab-content-trades" class="tab-content hidden"></div>
+        </main>
+        
+        <!-- Loading Spinner -->
+        <div id="loading-spinner" class="hidden text-center p-8">
+            <i class="fas fa-spinner fa-spin fa-3x text-blue-500"></i>
+            <p class="mt-4 text-gray-600">Cargando datos de la liga...</p>
+        </div>
+
+    </div>
+
+    <!-- Modal Template -->
+    <div id="modal-container" class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop hidden">
+        <div id="modal-content" class="bg-white rounded-xl shadow-2xl w-full max-w-lg transform transition-all" style="max-height: 90vh; overflow-y: auto;">
+            <!-- Modal content will be injected here -->
+        </div>
+    </div>
+
+    <!-- Firebase Configuration -->
+    <script src="firebase-config.js"></script>
+    
+    <!-- Firebase SDK -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getFirestore } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getAuth } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+        
+        // Inicializar Firebase
+        const app = initializeApp(window.firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+        
+        // Hacer disponible globalmente
+        window.firebaseApp = app;
+        window.firebaseDb = db;
+        window.firebaseAuth = auth;
+        
+        console.log('✅ Firebase inicializado correctamente');
+    </script>
+    
+    <!-- Main App Script -->
+    <script src="app.js"></script>
+    
+    <!-- Database Population Script (Development only) -->
+    <script src="populate-db.js"></script>
+    
+    <!-- LaLiga Fantasy Real Data Population Script -->
+    <script src="populate-laliga-fantasy.js"></script>
+    
+    <!-- Development Helper -->
+    <script>
+        // Agregar botones para poblar base de datos (solo en desarrollo)
+        document.addEventListener('DOMContentLoaded', () => {
+            setTimeout(() => {
+                if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.protocol === 'file:') {
+                    const header = document.querySelector('header');
+                    if (header) {
+                        // Contenedor para botones de desarrollo
+                        const devContainer = document.createElement('div');
+                        devContainer.className = 'mt-3 flex flex-wrap gap-2';
+                        
+                        // Botón para datos de muestra
+                        const devButton = document.createElement('button');
+                        devButton.innerHTML = '<i class="fas fa-database mr-2"></i>Poblar DB (Muestra)';
+                        devButton.className = 'px-3 py-2 bg-purple-600 text-white rounded-lg text-sm hover:bg-purple-700 transition';
+                        devButton.onclick = () => {
+                            if (confirm('¿Poblar la base de datos con jugadores de muestra?')) {
+                                populateAvailablePlayers();
+                            }
+                        };
+                        
+                        // Botón para datos REALES de LaLiga Fantasy
+                        const realDataButton = document.createElement('button');
+                        realDataButton.innerHTML = '<i class="fas fa-star mr-2"></i>LaLiga Fantasy REAL';
+                        realDataButton.className = 'px-3 py-2 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700 transition font-bold';
+                        realDataButton.onclick = () => {
+                            if (confirm('¿Poblar con datos REALES de LaLiga Fantasy? (43 jugadores reales)')) {
+                                if (window.populateRealLaLigaFantasy) {
+                                    populateRealLaLigaFantasy();
+                                } else {
+                                    console.error('Función populateRealLaLigaFantasy no disponible');
+                                }
+                            }
+                        };
+                        
+                        // Botón para verificar estado
+                        const statusButton = document.createElement('button');
+                        statusButton.innerHTML = '<i class="fas fa-chart-bar mr-2"></i>Estado DB';
+                        statusButton.className = 'px-3 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 transition';
+                        statusButton.onclick = () => {
+                            if (window.checkRealDataStatus) {
+                                checkRealDataStatus();
+                            } else if (window.checkDatabaseStatus) {
+                                checkDatabaseStatus();
+                            } else {
+                                console.error('Funciones de estado no disponibles');
+                            }
+                        };
+                        
+                        devContainer.appendChild(devButton);
+                        devContainer.appendChild(realDataButton);
+                        devContainer.appendChild(statusButton);
+                        header.appendChild(devContainer);
+                        
+                        console.log('🛠️  Modo desarrollo activado');
+                        console.log('📊 Datos disponibles: 43 jugadores reales de LaLiga Fantasy');
+                        console.log('🌐 Fuente: FutbolFantasy.com/analytics/laliga-fantasy/mercado');
+                    }
+                }
+            }, 2000);
+        });
+    </script>
+
+</body>
+</html>
