@@ -354,11 +354,14 @@
                             </div>
                             <div class="text-right">
                                 <p class="text-sm font-medium ${isFinished ? 'text-red-500' : 'text-blue-500'}">${isFinished ? 'Finalizada' : formatTimeLeft(timeLeft)}</p>
+                                ${!isFinished && item.sellerId === currentManagerId ? `
+                                    <button onclick="promptCancelAuction('${item.id}')" class="mt-1 bg-yellow-500 text-white px-3 py-1 rounded-lg text-sm font-medium hover:bg-yellow-600">Cancelar Subasta</button>
+                                ` : ''}
                                 ${isFinished && item.sellerId === currentManagerId && highestBid.bidderName !== 'Sin pujas' ? `
                                     <button onclick="finalizeAuction('${item.id}')" class="mt-1 bg-green-500 text-white px-3 py-1 rounded-lg text-sm font-medium hover:bg-green-600">Finalizar Traspaso</button>
                                 ` : ''}
                                 ${isFinished && highestBid.bidderName === 'Sin pujas' && item.sellerId === currentManagerId ? `
-                                    <button onclick="cancelAuction('${item.id}')" class="mt-1 bg-gray-500 text-white px-3 py-1 rounded-lg text-sm font-medium hover:bg-gray-600">Cerrar</button>
+                                    <button onclick="closeFinishedAuction('${item.id}')" class="mt-1 bg-gray-500 text-white px-3 py-1 rounded-lg text-sm font-medium hover:bg-gray-600">Cerrar</button>
                                 ` : ''}
                             </div>
                         </div>
@@ -523,7 +526,6 @@
                 nameInput.value = '';
                 valueInput.value = '';
                 nameInput.focus();
-                // The onSnapshot listener will automatically re-render the list
             } catch (e) {
                 console.error("Error al añadir jugador:", e);
                 showMessageModal('Error', 'No se pudo añadir el jugador.', 'fa-times-circle text-red-500');
@@ -534,7 +536,6 @@
             showConfirmationModal(`Eliminar a ${playerName}`, `¿Seguro que quieres eliminar a este jugador de tu plantilla? Esta acción es irreversible.`, async () => {
                 try {
                     await deleteDoc(doc(db, playersPath, playerId));
-                    // The onSnapshot listener will automatically re-render the list
                 } catch(e) {
                     console.error("Error al eliminar jugador:", e);
                     showMessageModal('Error', 'No se pudo eliminar el jugador.', 'fa-times-circle text-red-500');
@@ -1032,10 +1033,27 @@ y la transferencia de los activos mencionados.
             });
         }
         
-        window.cancelAuction = async (auctionId) => {
-            showConfirmationModal('Cerrar Subasta', '¿Seguro que quieres cerrar esta subasta sin ganador?', async () => {
-                 await deleteDoc(doc(db, auctionsPath, auctionId));
-                 showMessageModal('Subasta Cerrada', 'La subasta ha sido cerrada.', 'fa-info-circle text-blue-500');
+        window.promptCancelAuction = (auctionId) => {
+            showConfirmationModal('Cancelar Subasta', '¿Seguro que quieres retirar este jugador de la subasta? Todas las pujas serán eliminadas.', async () => {
+                try {
+                    await deleteDoc(doc(db, auctionsPath, auctionId));
+                    showMessageModal('Subasta Cancelada', 'El jugador ha sido retirado de la subasta.', 'fa-info-circle text-blue-500');
+                } catch (e) {
+                    console.error("Error al cancelar la subasta:", e);
+                    showMessageModal('Error', 'No se pudo cancelar la subasta.', 'fa-times-circle text-red-500');
+                }
+            });
+        }
+
+        window.closeFinishedAuction = async (auctionId) => {
+            showConfirmationModal('Cerrar Subasta', '¿Cerrar esta subasta sin ganador?', async () => {
+                try {
+                    await deleteDoc(doc(db, auctionsPath, auctionId));
+                    showMessageModal('Subasta Cerrada', 'La subasta ha sido cerrada.', 'fa-info-circle text-blue-500');
+                } catch(e) {
+                    console.error("Error al cerrar la subasta:", e);
+                    showMessageModal('Error', 'No se pudo cerrar la subasta.', 'fa-times-circle text-red-500');
+                }
             });
         }
 
