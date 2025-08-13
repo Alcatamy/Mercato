@@ -400,8 +400,8 @@ window.openEditSquadModal = async () => {
                 <div id="players-results" class="max-h-64 overflow-y-auto border rounded-lg bg-white mt-4">
                     <div class="p-4 text-center text-gray-500">
                         <i class="fas fa-search fa-2x mb-2"></i>
-                        <p>Busca jugadores por nombre o filtra por equipo/valor</p>
-                        <p class="text-sm mt-1">Se mostrarán los primeros 50 resultados</p>
+                        <p>Cargando jugadores de FutbolFantasy.com...</p>
+                        <p class="text-sm mt-1">Se mostrarán hasta 100 resultados</p>
                     </div>
                 </div>
             </div>
@@ -531,24 +531,12 @@ window.searchRealPlayers = () => {
             // Obtener jugadores de FutbolFantasy.com desde Firebase
             const playersRef = firestoreFunctions.collection(window.firebaseDb, 'players');
             
-            let q;
-            if (searchQuery && searchQuery.length >= 3) {
-                // Búsqueda optimizada por nombre cuando hay query específico
-                q = firestoreFunctions.query(
-                    playersRef,
-                    firestoreFunctions.where('source', '==', 'FutbolFantasy.com'),
-                    firestoreFunctions.where('name_lowercase', '>=', searchQuery),
-                    firestoreFunctions.where('name_lowercase', '<=', searchQuery + '\uf8ff'),
-                    firestoreFunctions.limit(50)
-                );
-            } else {
-                // Consulta general
-                q = firestoreFunctions.query(
-                    playersRef,
-                    firestoreFunctions.where('source', '==', 'FutbolFantasy.com'),
-                    firestoreFunctions.limit(100)
-                );
-            }
+            // Consulta base - obtener todos los jugadores de FutbolFantasy
+            const q = firestoreFunctions.query(
+                playersRef,
+                firestoreFunctions.where('source', '==', 'FutbolFantasy.com'),
+                firestoreFunctions.limit(500) // Aumentar límite para obtener más jugadores
+            );
             
             const playersSnapshot = await firestoreFunctions.getDocs(q);
             
@@ -558,12 +546,11 @@ window.searchRealPlayers = () => {
                 players.push(player);
             });
             
-            // Aplicar filtros
+            // Aplicar filtros del lado del cliente
             let filteredPlayers = players;
             
-            // Filtro por nombre - mejorado para búsqueda eficiente
-            if (searchQuery) {
-                // Si el campo name_lowercase existe, usarlo para búsqueda más eficiente
+            // Filtro por nombre/equipo - solo aplicar si hay texto de búsqueda
+            if (searchQuery && searchQuery.length >= 1) {
                 filteredPlayers = filteredPlayers.filter(player => {
                     const nameSearch = (player.name_lowercase || player.name.toLowerCase()).includes(searchQuery);
                     const teamSearch = (player.team_lowercase || player.team.toLowerCase()).includes(searchQuery);
@@ -588,8 +575,8 @@ window.searchRealPlayers = () => {
             // Ordenar por valor (de mayor a menor)
             filteredPlayers.sort((a, b) => (b.value || 0) - (a.value || 0));
             
-            // Limitar a 50 resultados
-            filteredPlayers = filteredPlayers.slice(0, 50);
+            // Limitar a 100 resultados para mejorar rendimiento
+            filteredPlayers = filteredPlayers.slice(0, 100);
             
             renderRealPlayersResults(filteredPlayers);
             
