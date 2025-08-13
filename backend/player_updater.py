@@ -62,10 +62,13 @@ def update_players_in_firestore(db, players_list):
             # Datos del jugador
             player_data = {
                 'name': player.name,
+                'name_lowercase': player.name.lower(),  # Campo para búsqueda eficiente
+                'team_lowercase': player.team.lower(),  # Campo para búsqueda de equipo
                 'position': player.position,
                 'team': player.team,
                 'value': player.value,
                 'points': player.points,
+                'source': 'FutbolFantasy.com',  # Identificar la fuente
                 'lastUpdated': datetime.now(),
                 'status': 'available'
             }
